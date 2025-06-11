@@ -18,51 +18,46 @@ export const Question: React.FC<QuestionProps> = ({
     switch (question.type) {
       case 'text':
         return (
-          <input
-            type="text"
+          <textarea
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            rows={question.options.multiline ? 4 : 1}
+            maxLength={question.options.maxLength}
           />
         );
-      case 'number':
+      case 'rating':
         return (
-          <input
-            type="number"
-            value={value || ''}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        );
-      case 'select':
-        return (
-          <select
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select an option</option>
-            {question.options?.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+          <div className="flex items-center space-x-4">
+            {Array.from({ length: question.options.max - question.options.min + 1 }, (_, i) => i + question.options.min).map((rating) => (
+              <label key={rating} className="flex flex-col items-center">
+                <input
+                  type="radio"
+                  name={`question-${question.id}`}
+                  value={rating}
+                  checked={value === rating}
+                  onChange={(e) => onChange(Number(e.target.value))}
+                  className="text-blue-500 focus:ring-blue-500"
+                />
+                <span className="text-sm mt-1">{question.options.labels[rating]}</span>
+              </label>
             ))}
-          </select>
+          </div>
         );
       case 'radio':
         return (
           <div className="space-y-2">
-            {question.options?.map((option) => (
-              <label key={option} className="flex items-center space-x-2">
+            {question.options.choices.map((choice) => (
+              <label key={choice} className="flex items-center space-x-2">
                 <input
                   type="radio"
                   name={`question-${question.id}`}
-                  value={option}
-                  checked={value === option}
+                  value={choice}
+                  checked={value === choice}
                   onChange={(e) => onChange(e.target.value)}
                   className="text-blue-500 focus:ring-blue-500"
                 />
-                <span>{option}</span>
+                <span>{choice}</span>
               </label>
             ))}
           </div>
@@ -70,18 +65,18 @@ export const Question: React.FC<QuestionProps> = ({
       case 'checkbox':
         return (
           <div className="space-y-2">
-            {question.options?.map((option) => (
-              <label key={option} className="flex items-center space-x-2">
+            {question.options.choices.map((choice) => (
+              <label key={choice} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  value={option}
-                  checked={Array.isArray(value) && value.includes(option)}
+                  value={choice}
+                  checked={Array.isArray(value) && value.includes(choice)}
                   onChange={(e) => {
                     const newValue = Array.isArray(value) ? [...value] : [];
                     if (e.target.checked) {
-                      newValue.push(option);
+                      newValue.push(choice);
                     } else {
-                      const index = newValue.indexOf(option);
+                      const index = newValue.indexOf(choice);
                       if (index > -1) {
                         newValue.splice(index, 1);
                       }
@@ -90,7 +85,7 @@ export const Question: React.FC<QuestionProps> = ({
                   }}
                   className="text-blue-500 focus:ring-blue-500"
                 />
-                <span>{option}</span>
+                <span>{choice}</span>
               </label>
             ))}
           </div>
