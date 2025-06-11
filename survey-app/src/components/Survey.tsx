@@ -8,14 +8,12 @@ export const Survey: React.FC = () => {
   const [responses, setResponses] = useState<Record<number, any>>({});
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionId, setSubmissionId] = useState<number | null>(null);
-  const [submittedResponses, setSubmittedResponses] = useState<any[]>([]);
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
         const data = await api.getQuestions();
-        console.log('questions: ', data);
         setQuestions(data);
       } catch (error) {
         console.error('Error fetching questions:', error);
@@ -41,11 +39,35 @@ export const Survey: React.FC = () => {
     let isValid = true;
 
     questions.forEach((question) => {
-      if (question.required) {
-        const value = responses[question.id];
-        if (!value || (Array.isArray(value) && value.length === 0)) {
-          newErrors[question.id] = 'This field is required';
-          isValid = false;
+      const value = responses[question.id];
+
+      // Required field validation
+      if (question.required && (!value || (Array.isArray(value) && value.length === 0))) {
+        newErrors[question.id] = 'This field is required';
+        isValid = false;
+      }
+
+      // Type-specific validation
+      if (value) {
+        switch (question.type) {
+          case 'text':
+            if (question.options.maxLength && value.length > question.options.maxLength) {
+              newErrors[question.id] = `Maximum length is ${question.options.maxLength} characters`;
+              isValid = false;
+            }
+            break;
+          case 'rating':
+            if (value < question.options.min || value > question.options.max) {
+              newErrors[question.id] = `Rating must be between ${question.options.min} and ${question.options.max}`;
+              isValid = false;
+            }
+            break;
+          case 'checkbox':
+            if (Array.isArray(value) && value.length === 0 && question.required) {
+              newErrors[question.id] = 'Please select at least one option';
+              isValid = false;
+            }
+            break;
         }
       }
     });
@@ -70,12 +92,8 @@ export const Survey: React.FC = () => {
         })
       );
 
-      const { submissionId } = await api.submitSurvey(surveyResponses);
-      setSubmissionId(submissionId);
-      
-      // Fetch submitted responses for review
-      const submittedData = await api.getSubmission(submissionId);
-      setSubmittedResponses(submittedData);
+      await api.submitSurvey(surveyResponses);
+      setShowResults(true);
     } catch (error) {
       console.error('Error submitting survey:', error);
     } finally {
@@ -83,22 +101,39 @@ export const Survey: React.FC = () => {
     }
   };
 
-  if (submissionId) {
+  const handleReset = () => {
+    setResponses({});
+    setErrors({});
+    setShowResults(false);
+  };
+
+  if (showResults) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <h2 className="text-2xl font-bold mb-6">Thank you for completing the survey!</h2>
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-xl font-semibold mb-4">Your Responses</h3>
-          {submittedResponses.map((response) => (
-            <div key={response.id} className="mb-4">
-              <h4 className="font-medium">{response.title}</h4>
-              <p className="text-gray-600">
-                {Array.isArray(response.answer)
-                  ? response.answer.join(', ')
-                  : response.answer}
-              </p>
-            </div>
-          ))}
+          {questions.map((question) => {
+            const response = responses[question.id];
+            return (
+              <div key={question.id} className="mb-4">
+                <h4 className="font-medium">{question.title}</h4>
+                <p className="text-gray-600">
+                  {question.type === 'rating' && question.options.labels[response]
+                    ? question.options.labels[response]
+                    : Array.isArray(response)
+                    ? response.join(', ')
+                    : response}
+                </p>
+              </div>
+            );
+          })}
+          <button
+            onClick={handleReset}
+            className="mt-6 w-full bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
+            Start New Survey
+          </button>
         </div>
       </div>
     );

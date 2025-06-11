@@ -1,7 +1,7 @@
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { Question, SurveySubmission, SurveyResponse, sequelize } from '../models';
 
-const router = express.Router();
+const router = Router();
 
 // Get all questions
 router.get('/questions', async (req: Request, res: Response) => {
@@ -17,11 +17,12 @@ router.get('/questions', async (req: Request, res: Response) => {
 });
 
 // Submit survey responses
-router.post('/submit', async (req: Request, res: Response) => {
+router.post('/submit', async (req: Request, res: Response): Promise<void> => {
   const { responses } = req.body;
 
   if (!Array.isArray(responses)) {
-    return res.status(400).json({ error: 'Invalid request format' });
+    res.status(400).json({ error: 'Invalid request format' });
+    return;
   }
 
   const transaction = await sequelize.transaction();
@@ -51,7 +52,7 @@ router.post('/submit', async (req: Request, res: Response) => {
 });
 
 // Get survey results
-router.get('/results', async (req: Request, res: Response) => {
+router.get('/results', async (req: Request, res: Response): Promise<void> => {
   try {
     const submissions = await SurveySubmission.findAll({
       include: [{
