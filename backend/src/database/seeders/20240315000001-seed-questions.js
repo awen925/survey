@@ -1,7 +1,5 @@
-import { QueryInterface } from 'sequelize';
-
 module.exports = {
-  up: async (queryInterface: QueryInterface) => {
+  up: async (queryInterface) => {
     await queryInterface.bulkInsert('questions', [
       {
         title: 'How satisfied are you with our service?',
@@ -72,7 +70,7 @@ module.exports = {
     ]);
   },
 
-  down: async (queryInterface: QueryInterface) => {
+  down: async (queryInterface) => {
     await queryInterface.bulkDelete('questions', {}, {});
   }
 }; 
