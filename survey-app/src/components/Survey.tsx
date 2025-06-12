@@ -9,6 +9,7 @@ export const Survey: React.FC = () => {
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -34,55 +35,66 @@ export const Survey: React.FC = () => {
     }));
   };
 
-  const validateResponses = (): boolean => {
-    const newErrors: Record<number, string> = {};
-    let isValid = true;
+  const validateCurrentQuestion = (): boolean => {
+    const question = questions[currentQuestionIndex];
+    const value = responses[question.id];
+    const newErrors: Record<number, string> = { ...errors };
 
-    questions.forEach((question) => {
-      const value = responses[question.id];
-
-      // Required field validation
-      if (question.required && (!value || (Array.isArray(value) && value.length === 0))) {
-        newErrors[question.id] = 'This field is required';
-        isValid = false;
-      }
-
-      // Type-specific validation
-      if (value) {
-        switch (question.type) {
-          case 'text':
-            if (question.options.maxLength && value.length > question.options.maxLength) {
-              newErrors[question.id] = `Maximum length is ${question.options.maxLength} characters`;
-              isValid = false;
-            }
-            break;
-          case 'rating':
-            if (value < question.options.min || value > question.options.max) {
-              newErrors[question.id] = `Rating must be between ${question.options.min} and ${question.options.max}`;
-              isValid = false;
-            }
-            break;
-          case 'checkbox':
-            if (Array.isArray(value) && value.length === 0 && question.required) {
-              newErrors[question.id] = 'Please select at least one option';
-              isValid = false;
-            }
-            break;
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateResponses()) {
-      return;
+    // Required field validation
+    if (question.required && (!value || (Array.isArray(value) && value.length === 0))) {
+      newErrors[question.id] = 'This field is required';
+      setErrors(newErrors);
+      return false;
     }
 
+    // Type-specific validation
+    if (value) {
+      switch (question.type) {
+        case 'text':
+          if (question.options.maxLength && value.length > question.options.maxLength) {
+            newErrors[question.id] = `Maximum length is ${question.options.maxLength} characters`;
+            setErrors(newErrors);
+            return false;
+          }
+          break;
+        case 'rating':
+          if (value < question.options.min || value > question.options.max) {
+            newErrors[question.id] = `Rating must be between ${question.options.min} and ${question.options.max}`;
+            setErrors(newErrors);
+            return false;
+          }
+          break;
+        case 'checkbox':
+          if (Array.isArray(value) && value.length === 0 && question.required) {
+            newErrors[question.id] = 'Please select at least one option';
+            setErrors(newErrors);
+            return false;
+          }
+          break;
+      }
+    }
+
+    setErrors(newErrors);
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateCurrentQuestion()) {
+      if (currentQuestionIndex < questions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      } else {
+        handleSubmit();
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const surveyResponses: SurveyResponse[] = Object.entries(responses).map(
@@ -105,6 +117,7 @@ export const Survey: React.FC = () => {
     setResponses({});
     setErrors({});
     setShowResults(false);
+    setCurrentQuestionIndex(0);
   };
 
   if (showResults) {
@@ -139,27 +152,63 @@ export const Survey: React.FC = () => {
     );
   }
 
+  if (questions.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="bg-white shadow rounded-lg p-6 text-center">
+          <p className="text-gray-600">Loading questions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Survey</h2>
-      <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6">
-        {questions.map((question) => (
-          <Question
-            key={question.id}
-            question={question}
-            value={responses[question.id]}
-            onChange={(value) => handleResponseChange(question.id, value)}
-            error={errors[question.id]}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-2xl font-bold">Survey</h2>
+          <span className="text-gray-600">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
           />
-        ))}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Survey'}
-        </button>
-      </form>
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded-lg p-6">
+        <Question
+          question={currentQuestion}
+          value={responses[currentQuestion.id]}
+          onChange={(value) => handleResponseChange(currentQuestion.id, value)}
+          error={errors[currentQuestion.id]}
+        />
+
+        <div className="flex justify-between mt-6">
+          <button
+            type="button"
+            onClick={handlePrevious}
+            disabled={currentQuestionIndex === 0}
+            className="bg-gray-500 text-white py-2 px-6 rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={isSubmitting}
+            className="bg-blue-500 text-white py-2 px-6 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {currentQuestionIndex === questions.length - 1 ? 'Submit' : 'Next'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }; 
